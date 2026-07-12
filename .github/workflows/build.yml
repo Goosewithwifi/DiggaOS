@@ -11,23 +11,18 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        # Added mtools (required for grub-mkrescue)
         sudo apt-get install -y xorriso grub-pc-bin grub-common cpio gzip mtools
 
     - name: Build DiggaOS
       run: |
         set -x
-        
-        # 1. Clean and Prepare
         rm -rf iso initramfs
         mkdir -p iso/boot/grub
         mkdir -p initramfs/bin initramfs/dev initramfs/proc initramfs/sys initramfs/sbin initramfs/etc
 
-        # 2. Grab Static BusyBox
         wget -O initramfs/bin/busybox https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox
         chmod +x initramfs/bin/busybox
 
-        # 3. Create Init Script
         cat << 'EOF' > initramfs/init
         #!/bin/busybox sh
         /bin/busybox --install -s /bin
@@ -41,18 +36,16 @@ jobs:
         EOF
         chmod +x initramfs/init
 
-        # 4. Pack Initramfs
         cd initramfs
         find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../iso/boot/initrd.img
         cd ..
 
-        # 5. Kernel Copy (Using a broad search ignoring errors)
-        # Using 2>/dev/null to hide 'Permission denied' noise
+        # Kernel Copy
         KERNEL_FILE=$(find /boot -name "vmlinuz*" -type f 2>/dev/null | head -n 1)
         sudo cp "$KERNEL_FILE" iso/boot/vmlinuz
         sudo chmod 644 iso/boot/vmlinuz
 
-        # 6. Configure GRUB
+        # Config
         cat << 'EOF' > iso/boot/grub/grub.cfg
         set default=0
         set timeout=1
@@ -62,9 +55,8 @@ jobs:
         }
         EOF
 
-        # 7. Finalize ISO
-        # We explicitly don't use FAT/mtools if it fails by just using xorriso directly
-        xorriso -as mkisofs -o diggaos.iso -isohybrid-mbr /usr/lib/grub/i386-pc/boot_hybrid.img -c boot/grub/i386-pc/boot.cat -b boot/grub/i386-pc/eltorito.img -no-emul-boot -boot-load-size 4 -boot-info-table iso
+        # THE FIX: Let grub-mkrescue find its own files instead of manual xorriso
+        grub-mkrescue -o diggaos.iso iso
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
