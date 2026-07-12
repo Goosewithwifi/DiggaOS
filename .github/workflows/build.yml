@@ -79,7 +79,7 @@ jobs:
         grub-mkrescue -o diggaos.iso iso
 
     - name: Upload DiggaOS ISO Artifact
-      uses: actions/artifacts/upload-artifact@v4
+      uses: actions/upload-artifact@v4
       with:
         name: diggaos-linux-iso
         path: diggaos.iso
