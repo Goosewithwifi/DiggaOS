@@ -18,41 +18,41 @@ jobs:
         set -e
         rm -rf iso initramfs
         mkdir -p iso/boot/grub
-        mkdir -p initramfs/{bin,dev,proc,sys,sbin,etc,lib/modules,var/cache/apt/archives,var/lib/apt/lists,var/lib/dpkg,usr/bin,usr/lib}
+        mkdir -p initramfs/bin initramfs/dev initramfs/proc initramfs/sys initramfs/sbin initramfs/etc initramfs/lib/modules initramfs/var/cache/apt/archives initramfs/var/lib/apt/lists initramfs/var/lib/dpkg initramfs/usr/bin initramfs/usr/lib
 
-        # Download BusyBox
         echo "Downloading BusyBox..."
         wget -q -O initramfs/bin/busybox https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox
         chmod +x initramfs/bin/busybox
         ./initramfs/bin/busybox --install -s ./initramfs/bin
 
-        # Extract APT from official .deb
         echo "Extracting APT from Ubuntu repositories..."
         mkdir -p /tmp/apt-extract
         cd /tmp/apt-extract
-        
-        # Try to download and extract apt
-        if wget -q https://launchpad.net/ubuntu/+archive/primary/+files/apt_2.7.14ubuntu1_amd64.deb -O apt.deb 2>/dev/null || \
-           wget -q http://mirrors.kernel.org/ubuntu/pool/main/a/apt/apt_2.7.14ubuntu1_amd64.deb -O apt.deb 2>/dev/null || \
-           apt download apt 2>/dev/null; then
-          echo "Extracting apt.deb..."
-          ar x apt.deb 2>/dev/null || true
+        wget -q http://mirrors.kernel.org/ubuntu/pool/main/a/apt/apt_2.7.14ubuntu1_amd64.deb -O apt.deb || true
+        if [ -f apt.deb ]; then
+          ar x apt.deb || true
           if [ -f data.tar.xz ]; then
-            tar -xf data.tar.xz 2>/dev/null
-            [ -f usr/bin/apt ] && cp usr/bin/apt ../../../initramfs/bin/apt && chmod +x ../../../initramfs/bin/apt
-            [ -f usr/bin/apt-get ] && cp usr/bin/apt-get ../../../initramfs/bin/apt-get && chmod +x ../../../initramfs/bin/apt-get
-            [ -f usr/bin/apt-cache ] && cp usr/bin/apt-cache ../../../initramfs/bin/apt-cache && chmod +x ../../../initramfs/bin/apt-cache
+            tar -xf data.tar.xz || true
+            if [ -f usr/bin/apt ]; then
+              cp usr/bin/apt /home/runner/work/*/*/initramfs/bin/apt 2>/dev/null || cp usr/bin/apt "$GITHUB_WORKSPACE/initramfs/bin/apt"
+              chmod +x "$GITHUB_WORKSPACE/initramfs/bin/apt"
+            fi
+            if [ -f usr/bin/apt-get ]; then
+              cp usr/bin/apt-get "$GITHUB_WORKSPACE/initramfs/bin/apt-get"
+              chmod +x "$GITHUB_WORKSPACE/initramfs/bin/apt-get"
+            fi
+            if [ -f usr/bin/apt-cache ]; then
+              cp usr/bin/apt-cache "$GITHUB_WORKSPACE/initramfs/bin/apt-cache"
+              chmod +x "$GITHUB_WORKSPACE/initramfs/bin/apt-cache"
+            fi
           fi
         fi
-        
-        cd ../..
-        
-        # Fallback: create symlink if apt-get extracted but apt didn't
+        cd "$GITHUB_WORKSPACE"
+
         if [ -f initramfs/bin/apt-get ] && [ ! -f initramfs/bin/apt ]; then
-          ln -s apt-get initramfs/bin/apt 2>/dev/null || true
+          ln -s apt-get initramfs/bin/apt || true
         fi
 
-        # Kernel and Modules
         echo "Copying kernel and modules..."
         KERNEL_VERSION=$(uname -r)
         sudo cp /boot/vmlinuz-$KERNEL_VERSION ./vmlinuz_temp
@@ -61,83 +61,72 @@ jobs:
         sudo cp -r /lib/modules/$KERNEL_VERSION initramfs/lib/modules/
         sudo chown -R $(id -u):$(id -g) initramfs/
 
-        # Create init script
-        cat > initramfs/init << 'INIT_SCRIPT'
-#!/bin/sh
-export PATH=/bin:/sbin:/usr/bin:/usr/sbin
-export HOME=/root
-export TERM=linux
-export DEBIAN_FRONTEND=noninteractive
-
-# Mount filesystems
-mount -t proc none /proc
-mount -t sysfs none /sys
-mount -t devtmpfs none /dev
-
-# Load kernel modules
-for m in $(find /lib/modules -name "*.ko" 2>/dev/null); do
-  insmod "$m" 2>/dev/null || true
-done
-
-sleep 1
-
-# Setup network
-IFACE=$(ls /sys/class/net 2>/dev/null | grep -v lo | head -1)
-if [ -n "$IFACE" ]; then
-  ifconfig "$IFACE" up 2>/dev/null || true
-fi
-
-# Initialize apt directories
-mkdir -p /var/lib/apt/lists /var/cache/apt/archives /var/lib/dpkg
-touch /var/lib/dpkg/status 2>/dev/null || true
-
-# Boot banner
-clear
-cat << 'BANNER'
-  ____  _                      ____   ____  
- |  _ \(_) __ _  __ _  __ _   / __ \ / ___| 
- | | | | |/ _` |/ _` |/ _` | | |  | |\___ \ 
- | |_| | | (_| | (_| | (_| | | |__| | ___) |
- |____/|_|\__, |\__, |\__,_|  \____/ |____/ 
-          |___/ |___/                       
-
-DiggaOS v1.3 - With APT Package Manager
-
-Commands:
-  apt install <package>     Install packages
-  apt remove <package>      Remove packages
-  apt update                Update package lists
-  apt search <keyword>      Search packages
-  apt list --installed      Show installed packages
-  wget <url>               Download files
-  ifconfig / ping          Network tools
-
-Example: apt install curl
-
-BANNER
-
-exec /bin/sh
-INIT_SCRIPT
+        echo "Creating init script..."
+        printf '%s\n' \
+          '#!/bin/sh' \
+          'export PATH=/bin:/sbin:/usr/bin:/usr/sbin' \
+          'export HOME=/root' \
+          'export TERM=linux' \
+          'export DEBIAN_FRONTEND=noninteractive' \
+          '' \
+          'mount -t proc none /proc' \
+          'mount -t sysfs none /sys' \
+          'mount -t devtmpfs none /dev' \
+          '' \
+          'for m in $(find /lib/modules -name "*.ko" 2>/dev/null); do' \
+          '  insmod "$m" 2>/dev/null || true' \
+          'done' \
+          '' \
+          'sleep 1' \
+          '' \
+          'IFACE=$(ls /sys/class/net 2>/dev/null | grep -v lo | head -1)' \
+          'if [ -n "$IFACE" ]; then' \
+          '  ifconfig "$IFACE" up 2>/dev/null || true' \
+          'fi' \
+          '' \
+          'mkdir -p /var/lib/apt/lists /var/cache/apt/archives /var/lib/dpkg' \
+          'touch /var/lib/dpkg/status 2>/dev/null || true' \
+          '' \
+          'clear' \
+          'echo "  ____  _                      ____   ____  "' \
+          'echo " |  _ \\(_) __ _  __ _  __ _   / __ \\ / ___| "' \
+          'echo " | | | | |/ _\` |/ _\` |/ _\` | | |  | |\\___ \\ "' \
+          'echo " | |_| | | (_| | (_| | (_| | | |__| | ___) |"' \
+          'echo " |____/|_|\\__, |\\__, |\\__,_|  \\____/ |____/ "' \
+          'echo "          |___/ |___/                       "' \
+          'echo ""' \
+          'echo "DiggaOS v1.3 - With APT Package Manager"' \
+          'echo ""' \
+          'echo "Commands:"' \
+          'echo "  apt install <package>     Install packages"' \
+          'echo "  apt remove <package>      Remove packages"' \
+          'echo "  apt update                Update package lists"' \
+          'echo "  wget <url>                Download files"' \
+          'echo "  ifconfig / ping           Network tools"' \
+          'echo ""' \
+          'echo "Example: apt install curl"' \
+          'echo ""' \
+          '' \
+          'exec /bin/sh' \
+          > initramfs/init
         chmod +x initramfs/init
 
-        # Pack initramfs
         echo "Packing initramfs..."
         cd initramfs
         find . -print0 | cpio --null -ov --format=newc | xz -9 > ../iso/boot/initrd.img
         cd ..
 
-        # Create GRUB config
-        cat > iso/boot/grub/grub.cfg << 'GRUB_CFG'
-set timeout=1
-insmod part_iso9660
-insmod iso9660
-menuentry "DiggaOS v1.3 with APT" {
-    linux /boot/vmlinuz root=/dev/ram0 rw nomodeset init=/init
-    initrd /boot/initrd.img
-}
-GRUB_CFG
+        echo "Creating GRUB config..."
+        printf '%s\n' \
+          'set timeout=1' \
+          'insmod part_iso9660' \
+          'insmod iso9660' \
+          'menuentry "DiggaOS v1.3 with APT" {' \
+          '    linux /boot/vmlinuz root=/dev/ram0 rw nomodeset init=/init' \
+          '    initrd /boot/initrd.img' \
+          '}' \
+          > iso/boot/grub/grub.cfg
 
-        # Build ISO
         echo "Building ISO..."
         grub-mkrescue -o diggaos-apt.iso iso
         ls -lh diggaos-apt.iso
