@@ -15,14 +15,16 @@ jobs:
 
     - name: Build DiggaOS
       run: |
+        set -x # Print commands to see exactly where it fails
+        
         # 1. Create directory structure
         mkdir -p iso/boot/grub
-        mkdir -p initramfs/{bin,dev,proc,sys,sbin,etc}
+        mkdir -p initramfs/bin initramfs/dev initramfs/proc initramfs/sys initramfs/sbin initramfs/etc
 
-        # 2. Safely find and copy BusyBox
-        cp /bin/busybox initramfs/bin/ || cp /bin/busybox-static initramfs/bin/busybox
+        # 2. Copy the static busybox binary explicitly
+        cp /bin/busybox-static initramfs/bin/busybox
 
-        # 3. Create the init script with customized DiggaOS ASCII
+        # 3. Create the init script
         cat << 'EOF' > initramfs/init
         #!/bin/busybox sh
         /bin/busybox --install -s /bin
@@ -56,9 +58,9 @@ jobs:
         cd ..
 
         # 5. Copy the host's Linux kernel 
-        cp /boot/vmlinuz-$(uname -r) iso/boot/vmlinuz
+        cp /boot/vmlinuz-*-generic iso/boot/vmlinuz || cp /boot/vmlinuz-$(uname -r) iso/boot/vmlinuz
 
-        # 6. Configure the Boot Menu (GRUB) to say DiggaOS
+        # 6. Configure the Boot Menu (GRUB)
         cat << 'EOF' > iso/boot/grub/grub.cfg
         set default=0
         set timeout=10
