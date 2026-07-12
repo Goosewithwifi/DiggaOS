@@ -1,0 +1,85 @@
+name: Build DiggaOS ISO
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y bc build-essential libncurses-dev libssl-dev libelf-dev bison flex xorriso grub-pc-bin grub-common
+
+    - name: Build DiggaOS
+      run: |
+        # 1. Create directory structure
+        mkdir -p iso/boot/grub
+        mkdir -p initramfs/{bin,dev,proc,sys,sbin,etc}
+
+        # 2. Get BusyBox (The mini tools)
+        wget https://busybox.net/downloads/binaries/1.35.0-x86_64/busybox
+        chmod +x busybox
+        cp busybox initramfs/bin/
+
+        # 3. Create the init script with customized DiggaOS ASCII
+        cat << 'EOF' > initramfs/init
+        #!/bin/bin/busybox sh
+        /bin/bin/busybox --install -s /bin/bin
+        mount -t proc none /proc
+        mount -t sysfs none /sys
+        
+        clear
+        echo "=========================================================="
+        echo "  _____  _                       ____   _____  "
+        echo " |  __ \(_)                     / __ \ / ____| "
+        echo " | |  | |_  __ _  __ _  __ _   | |  | | (___   "
+        echo " | |  | | |/ _\` |/ _\` |/ _\` |  | |  | |\___ \  "
+        echo " | |__| | | (_| | (_| | (_| |  | |__| |____) | "
+        echo " |_____/|_|\__, |\__, |\__,_|   \____/|_____/  "
+        echo "            __/ | __/ |                        "
+        echo "           |___/ |___/                         "
+        echo "=========================================================="
+        echo " 🛠️ DiggaOS v0.1 - Built entirely from a phone! 📱"
+        echo "=========================================================="
+        echo ""
+        echo " Welcome to the core. Shell is ready for your commands!"
+        echo ""
+        
+        exec /bin/bin/sh
+        EOF
+        chmod +x initramfs/init
+
+        # 4. Pack the initramfs
+        cd initramfs
+        find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../iso/boot/initrd.img
+        cd ..
+
+        # 5. Copy the host's Linux kernel 
+        cp /boot/vmlinuz-$(uname -r) iso/boot/vmlinuz
+
+        # 6. Configure the Boot Menu (GRUB) to say DiggaOS
+        cat << 'EOF' > iso/boot/grub/grub.cfg
+        set default=0
+        set timeout=10
+
+        menuentry "⚡ DiggaOS (ASCII Boot Mode)" {
+            linux /boot/vmlinuz quiet splash
+            initrd /boot/initrd.img
+        }
+        
+        menuentry "🔄 Reboot System" {
+            reboot
+        }
+        EOF
+
+        # 7. Create the ISO
+        grub-mkrescue -o diggaos.iso iso
+
+    - name: Upload DiggaOS ISO Artifact
+      uses: actions/artifacts/upload-artifact@v4
+      with:
+        name: diggaos-linux-iso
+        path: diggaos.iso
