@@ -1,4 +1,4 @@
-name: Build DiggaOS ISO
+name: Build Universal DiggaOS
 on: [push, workflow_dispatch]
 
 jobs:
@@ -11,55 +11,63 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y xorriso grub-pc-bin grub-common cpio gzip mtools
+        sudo apt-get install -y xorriso grub-pc-bin grub-common cpio gzip mtools kmod
 
     - name: Build DiggaOS
       run: |
         set -x
         rm -rf iso initramfs
         mkdir -p iso/boot/grub
-        mkdir -p initramfs/bin initramfs/dev initramfs/proc initramfs/sys initramfs/sbin initramfs/etc
+        mkdir -p initramfs/{bin,dev,proc,sys,sbin,etc,lib/modules}
 
-        wget -O initramfs/bin/busybox https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox
+        # 1. BusyBox with Fail-safe
+        if ! wget -O initramfs/bin/busybox https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox; then
+           wget -O initramfs/bin/busybox https://github.com/moparisthebest/static-binaries/raw/master/bin/busybox-x86_64
+        fi
         chmod +x initramfs/bin/busybox
+        initramfs/bin/busybox --install -s initramfs/bin
 
+        # 2. Add Kernel Modules
+        KERNEL_VERSION=$(uname -r)
+        cp -r /lib/modules/$KERNEL_VERSION initramfs/lib/modules/
+        depmod -b initramfs $KERNEL_VERSION
+
+        # 3. Create Init Script
         cat << 'EOF' > initramfs/init
         #!/bin/busybox sh
-        /bin/busybox --install -s /bin
         mount -t proc none /proc
         mount -t sysfs none /sys
+        # Load hardware drivers
+        find /lib/modules -name "*.ko" | xargs -n 1 modprobe -q
         clear
-        echo "=========================================================="
-        echo " DiggaOS v1.0 [SHELL ONLY]"
-        echo "=========================================================="
-        while true; do /bin/sh; done
+        echo "DiggaOS Universal Boot Successful."
+        /bin/sh
         EOF
         chmod +x initramfs/init
 
+        # 4. Pack Initramfs
         cd initramfs
         find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../iso/boot/initrd.img
         cd ..
 
-        # Kernel Copy
-        KERNEL_FILE=$(find /boot -name "vmlinuz*" -type f 2>/dev/null | head -n 1)
-        sudo cp "$KERNEL_FILE" iso/boot/vmlinuz
-        sudo chmod 644 iso/boot/vmlinuz
+        # 5. Copy Kernel
+        cp /boot/vmlinuz-$KERNEL_VERSION iso/boot/vmlinuz
 
-        # Config
+        # 6. Configure GRUB
         cat << 'EOF' > iso/boot/grub/grub.cfg
-        set default=0
+        set gfxpayload=keep
         set timeout=1
-        menuentry "DiggaOS" {
-            linux /boot/vmlinuz nomodeset text vga=normal console=tty1
+        menuentry "DiggaOS Universal" {
+            linux /boot/vmlinuz root=/dev/ram0 rw nomodeset
             initrd /boot/initrd.img
         }
         EOF
 
-        # THE FIX: Let grub-mkrescue find its own files instead of manual xorriso
-        grub-mkrescue -o diggaos.iso iso
+        # 7. Finalize ISO
+        grub-mkrescue -o diggaos-universal.iso iso
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: diggaos-final-iso
-        path: diggaos.iso
+        name: diggaos-universal
+        path: diggaos-universal.iso
