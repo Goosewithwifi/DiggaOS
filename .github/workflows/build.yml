@@ -11,7 +11,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install -y xorriso grub-pc-bin grub-common wget cpio gzip
+        sudo apt-get install -y xorriso grub-pc-bin grub-common cpio gzip
 
     - name: Build DiggaOS
       run: |
@@ -22,7 +22,7 @@ jobs:
         mkdir -p iso/boot/grub
         mkdir -p initramfs/bin initramfs/dev initramfs/proc initramfs/sys initramfs/sbin initramfs/etc
 
-        # 2. Grab Verified Static BusyBox (x86_64)
+        # 2. Grab Static BusyBox (x86_64) from official source
         wget -O initramfs/bin/busybox https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox
         chmod +x initramfs/bin/busybox
 
@@ -39,7 +39,6 @@ jobs:
         echo "=========================================================="
         echo ""
         
-        # Infinite loop to keep shell alive
         while true; do
             /bin/sh
         done
@@ -51,13 +50,12 @@ jobs:
         find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../iso/boot/initrd.img
         cd ..
 
-        # 5. Grab a proven minimal kernel
-        # Using a reliable mirror for the kernel image
-        wget -O iso/boot/vmlinuz https://github.com/torvalds/linux/raw/master/arch/x86/boot/bzImage || \
-        wget -O iso/boot/vmlinuz https://raw.githubusercontent.com/copy/v86/master/images/linux-kernel-i686.bin
-        chmod 644 iso/boot/vmlinuz
+        # 5. Copy the kernel from the local GitHub runner
+        # This replaces the failing wget with a guaranteed local file
+        sudo find /boot -name "vmlinuz-*-generic" | head -n 1 | xargs -I {} sudo cp {} iso/boot/vmlinuz
+        sudo chmod 644 iso/boot/vmlinuz
 
-        # 6. Configure GRUB (The fix for the black screen)
+        # 6. Configure GRUB
         cat << 'EOF' > iso/boot/grub/grub.cfg
         set default=0
         set timeout=1
