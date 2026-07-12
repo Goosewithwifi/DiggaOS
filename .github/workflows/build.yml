@@ -20,34 +20,38 @@ jobs:
         mkdir -p iso/boot/grub
         mkdir -p initramfs/{bin,dev,proc,sys,sbin,etc,lib/modules}
 
-        # 1. BusyBox with fail-safe
+        # 1. BusyBox
         if ! wget -O initramfs/bin/busybox https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox; then
            wget -O initramfs/bin/busybox https://github.com/moparisthebest/static-binaries/raw/master/bin/busybox-x86_64
         fi
         chmod +x initramfs/bin/busybox
-        initramfs/bin/busybox --install -s initramfs/bin
+        # Symlink all busybox commands
+        ./initramfs/bin/busybox --install -s ./initramfs/bin
 
         # 2. Kernel and Modules
         KERNEL_VERSION=$(uname -r)
-        # The "Nuclear" copy strategy to bypass permissions
         sudo cp /boot/vmlinuz-$KERNEL_VERSION ./vmlinuz_temp
         mv ./vmlinuz_temp iso/boot/vmlinuz
         sudo chmod 644 iso/boot/vmlinuz
         
-        # Modules
         cp -r /lib/modules/$KERNEL_VERSION initramfs/lib/modules/
-        depmod -b initramfs $KERNEL_VERSION
 
-        # 3. Create Init Script
+        # 3. The "Indestructible" Init Script
         cat << 'EOF' > initramfs/init
-        #!/bin/busybox sh
+        #!/bin/sh
+        export PATH=/bin:/sbin
         mount -t proc none /proc
         mount -t sysfs none /sys
-        # Load hardware drivers
-        find /lib/modules -name "*.ko" | xargs -n 1 modprobe -q
+        
+        # Load drivers brute-force
+        for m in $(find /lib/modules -name "*.ko"); do
+            insmod $m
+        done
+        
         clear
-        echo "DiggaOS Universal Boot Successful."
-        /bin/sh
+        echo "DiggaOS Kernel loaded. Launching shell..."
+        # The 'exec' here is the magic that prevents kernel panic
+        exec /bin/sh
         EOF
         chmod +x initramfs/init
 
@@ -56,9 +60,8 @@ jobs:
         find . -print0 | cpio --null -ov --format=newc | gzip -9 > ../iso/boot/initrd.img
         cd ..
 
-        # 5. Configure GRUB
+        # 5. GRUB Config
         cat << 'EOF' > iso/boot/grub/grub.cfg
-        set gfxpayload=keep
         set timeout=1
         menuentry "DiggaOS Universal" {
             linux /boot/vmlinuz root=/dev/ram0 rw nomodeset
@@ -66,7 +69,7 @@ jobs:
         }
         EOF
 
-        # 6. Finalize ISO
+        # 6. Build ISO
         grub-mkrescue -o diggaos-universal.iso iso
 
     - name: Upload Artifact
