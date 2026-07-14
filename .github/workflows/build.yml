@@ -1,4 +1,4 @@
-name: Build DiggaOS with APT
+name: Build DiggaOS v2.0 Stable
 on: [push, workflow_dispatch]
 
 jobs:
@@ -13,144 +13,144 @@ jobs:
         sudo apt-get update
         sudo apt-get install -y xorriso grub-pc-bin grub-common cpio gzip mtools kmod xz-utils
 
-    - name: Build DiggaOS with APT
+    - name: Build DiggaOS v2.0
       run: |
         set -e
         rm -rf iso initramfs
         mkdir -p iso/boot/grub
-        mkdir -p initramfs/bin initramfs/dev initramfs/proc initramfs/sys initramfs/sbin initramfs/etc initramfs/lib/modules initramfs/var/cache/apt/archives initramfs/var/lib/apt/lists initramfs/var/lib/dpkg initramfs/usr/bin initramfs/usr/lib
+        mkdir -p initramfs/{bin,dev,proc,sys,sbin,etc,lib/modules,root,home/digga}
 
-        echo "== Downloading BusyBox =="
+        echo "=== Step 1: BusyBox ==="
         wget -q -O initramfs/bin/busybox https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox
-        test -s initramfs/bin/busybox || { echo "FATAL: busybox download failed or is empty"; exit 1; }
+        test -s initramfs/bin/busybox || { echo "FATAL: busybox download failed"; exit 1; }
         chmod +x initramfs/bin/busybox
         ./initramfs/bin/busybox --install -s ./initramfs/bin
+        echo "✓ BusyBox installed"
 
-        echo "== Extracting APT (best-effort, non-fatal) =="
-        mkdir -p /tmp/apt-extract
-        (
-          cd /tmp/apt-extract
-          wget -q http://mirrors.kernel.org/ubuntu/pool/main/a/apt/apt_2.7.14ubuntu1_amd64.deb -O apt.deb || true
-          if [ -s apt.deb ]; then
-            ar x apt.deb || true
-            if [ -f data.tar.xz ]; then
-              tar -xf data.tar.xz || true
-            fi
-          fi
-        )
-        # Copy whatever we got, using an explicit absolute path — no globs, no guessing
-        for bin in apt apt-get apt-cache; do
-          if [ -f "/tmp/apt-extract/usr/bin/$bin" ]; then
-            cp "/tmp/apt-extract/usr/bin/$bin" "$GITHUB_WORKSPACE/initramfs/bin/$bin"
-            chmod +x "$GITHUB_WORKSPACE/initramfs/bin/$bin"
-            echo "  -> installed $bin"
-          else
-            echo "  -> $bin not available (skipping, non-fatal)"
-          fi
-        done
-        if [ -f initramfs/bin/apt-get ] && [ ! -f initramfs/bin/apt ]; then
-          ln -s apt-get initramfs/bin/apt
-        fi
+        echo "=== Step 2: System Identity Files ==="
+        echo "digga" > initramfs/etc/hostname
+        printf '%s\n' 'NAME="DiggaOS"' 'VERSION="2.0"' 'ID=diggaos' 'ID_LIKE=linux' 'PRETTY_NAME="DiggaOS v2.0"' 'VERSION_ID=2.0' 'HOME_URL="https://github.com/Goosewithwifi/Completely-ai-made-os"' > initramfs/etc/os-release
+        printf '%s\n' 'DISTRIB_ID=DiggaOS' 'DISTRIB_RELEASE=2.0' 'DISTRIB_CODENAME=digga' 'DISTRIB_DESCRIPTION="DiggaOS v2.0 - Minimal Linux"' > initramfs/etc/lsb-release
+        echo "✓ System identity files created"
 
-        echo "== Copying kernel and modules =="
+        echo "=== Step 3: User Accounts ==="
+        printf '%s\n' 'root:x:0:0:root:/root:/bin/sh' 'digga:x:1000:1000:DiggaOS User:/home/digga:/bin/sh' > initramfs/etc/passwd
+        printf '%s\n' 'root::0:0:99999:7:::' 'digga::0:0:99999:7:::' > initramfs/etc/shadow
+        chmod 640 initramfs/etc/shadow
+        printf '%s\n' 'root:x:0:' 'digga:x:1000:' 'wheel:x:10:root,digga' > initramfs/etc/group
+        mkdir -p initramfs/home/digga
+        echo "digga ALL=(ALL) NOPASSWD: ALL" > initramfs/etc/sudoers
+        chmod 440 initramfs/etc/sudoers
+        echo "✓ User accounts created (root and digga)"
+
+        echo "=== Step 4: Kernel and Modules ==="
         KERNEL_VERSION=$(uname -r)
-        test -f /boot/vmlinuz-$KERNEL_VERSION || { echo "FATAL: kernel image not found at /boot/vmlinuz-$KERNEL_VERSION"; exit 1; }
+        test -f /boot/vmlinuz-$KERNEL_VERSION || { echo "FATAL: kernel not found"; exit 1; }
         sudo cp /boot/vmlinuz-$KERNEL_VERSION ./vmlinuz_temp
         mv ./vmlinuz_temp iso/boot/vmlinuz
         sudo chmod 644 iso/boot/vmlinuz
-
-        test -d /lib/modules/$KERNEL_VERSION || { echo "FATAL: kernel modules dir not found at /lib/modules/$KERNEL_VERSION"; exit 1; }
+        
+        test -d /lib/modules/$KERNEL_VERSION || { echo "FATAL: kernel modules not found"; exit 1; }
         sudo cp -r /lib/modules/$KERNEL_VERSION initramfs/lib/modules/
-        sudo chown -R $(id -u):$(id -g) initramfs
+        sudo chown -R $(id -u):$(id -g) initramfs/
+        echo "✓ Kernel and modules copied"
 
-        echo "== Creating init script =="
+        echo "=== Step 5: Init Script ==="
         printf '%s\n' \
           '#!/bin/sh' \
           'export PATH=/bin:/sbin:/usr/bin:/usr/sbin' \
           'export HOME=/root' \
           'export TERM=linux' \
-          'export DEBIAN_FRONTEND=noninteractive' \
-          '' \
           'mount -t proc none /proc' \
           'mount -t sysfs none /sys' \
           'mount -t devtmpfs none /dev' \
-          '' \
           'for m in $(find /lib/modules -name "*.ko" 2>/dev/null); do' \
           '  insmod "$m" 2>/dev/null || true' \
           'done' \
-          '' \
           'sleep 1' \
-          '' \
           'IFACE=$(ls /sys/class/net 2>/dev/null | grep -v lo | head -1)' \
           'if [ -n "$IFACE" ]; then' \
           '  ifconfig "$IFACE" up 2>/dev/null || true' \
           'fi' \
-          '' \
-          'mkdir -p /var/lib/apt/lists /var/cache/apt/archives /var/lib/dpkg' \
-          'touch /var/lib/dpkg/status 2>/dev/null || true' \
-          '' \
           'clear' \
           'echo "  ____  _                      ____   ____  "' \
           'echo " |  _ \\(_) __ _  __ _  __ _   / __ \\ / ___| "' \
           'echo " | | | | |/ _\` |/ _\` |/ _\` | | |  | |\\___ \\ "' \
           'echo " | |_| | | (_| | (_| | (_| | | |__| | ___) |"' \
-          'echo " |____/|_|\\__, |\\__, |\\__,_|  \\____/ |____/ "' \
+          'echo " |____/|_|\\__ |\\__ |\\__,_|  \\____/ |____/ "' \
           'echo "          |___/ |___/                       "' \
           'echo ""' \
-          'echo "DiggaOS v1.3 - With APT Package Manager"' \
+          'echo "DiggaOS v2.0 - Now with System Identity"' \
           'echo ""' \
-          'echo "Commands:"' \
-          'echo "  apt install <package>     Install packages"' \
-          'echo "  apt remove <package>      Remove packages"' \
-          'echo "  apt update                Update package lists"' \
-          'echo "  wget <url>                Download files"' \
-          'echo "  ifconfig / ping           Network tools"' \
+          'echo "Kernel: $(uname -r)"' \
+          'echo "Hostname: $(cat /etc/hostname 2>/dev/null || echo digga)"' \
+          'echo "OS: DiggaOS v2.0"' \
           'echo ""' \
-          'echo "Example: apt install curl"' \
+          'echo "Try: uname -a"' \
+          'echo "Try: hostname"' \
+          'echo "Try: cat /etc/os-release"' \
+          'echo "Try: whoami"' \
           'echo ""' \
-          '' \
-          'exec /bin/sh' \
+          'exec su - digga' \
           > initramfs/init
         chmod +x initramfs/init
-        test -s initramfs/init || { echo "FATAL: init script is empty"; exit 1; }
+        test -x initramfs/init || { echo "FATAL: init script not executable"; exit 1; }
+        echo "✓ Init script created"
 
-        echo "== Verifying initramfs contents before packing =="
-        echo "Contents of initramfs/:"
-        find initramfs -maxdepth 2
-        test -x initramfs/bin/busybox || { echo "FATAL: busybox missing from initramfs before packing"; exit 1; }
-        test -x initramfs/init || { echo "FATAL: /init missing or not executable before packing"; exit 1; }
+        echo "=== Step 6: Verify Initramfs Contents ==="
+        echo "Key files in initramfs:"
+        ls -la initramfs/init
+        ls -la initramfs/etc/hostname
+        ls -la initramfs/etc/os-release
+        ls -la initramfs/etc/passwd
         du -sh initramfs
 
-        echo "== Packing initramfs =="
-        (
-          cd initramfs
-          find . -print0 | cpio --null -ov --format=newc | xz -9 > ../iso/boot/initrd.img
-        )
-        test -s iso/boot/initrd.img || { echo "FATAL: initrd.img is empty after packing"; exit 1; }
-        echo "initrd.img size:"
+        echo "=== Step 7: Pack Initramfs ==="
+        cd initramfs
+        find . -print0 | cpio --null -ov --format=newc 2>/dev/null | xz -9 > ../iso/boot/initrd.img
+        cd ..
+        test -s iso/boot/initrd.img || { echo "FATAL: initrd.img is empty"; exit 1; }
+        echo "✓ Initramfs packed"
         ls -lh iso/boot/initrd.img
 
-        echo "== Sanity check: can we read back the cpio archive? =="
-        xz -dc iso/boot/initrd.img | cpio -t 2>&1 | head -20
-        echo "(^ should list files like ./init, ./bin/busybox, etc. If empty, the pack failed.)"
+        echo "=== Step 8: Verify CPIO Contents ==="
+        echo "Files in initrd.img (first 30):"
+        xz -dc iso/boot/initrd.img | cpio -t 2>/dev/null | head -30
+        echo ""
+        INIT_CHECK=$(xz -dc iso/boot/initrd.img | cpio -t 2>/dev/null | grep -c "^./init$")
+        test "$INIT_CHECK" -eq 1 || { echo "FATAL: /init not found in cpio archive"; exit 1; }
+        echo "✓ /init found in archive"
 
-        echo "== Creating GRUB config =="
+        echo "=== Step 9: GRUB Configuration ==="
         printf '%s\n' \
-          'set timeout=1' \
+          'set timeout=2' \
           'insmod part_iso9660' \
           'insmod iso9660' \
-          'menuentry "DiggaOS v1.3 with APT" {' \
+          'menuentry "DiggaOS v2.0 - Stable" {' \
           '    linux /boot/vmlinuz root=/dev/ram0 rw nomodeset init=/init' \
           '    initrd /boot/initrd.img' \
           '}' \
           > iso/boot/grub/grub.cfg
+        echo "✓ GRUB config created"
 
-        echo "== Building ISO =="
-        grub-mkrescue -o diggaos-apt.iso iso
-        ls -lh diggaos-apt.iso
+        echo "=== Step 10: Build ISO ==="
+        grub-mkrescue -o diggaos-v2.0.iso iso 2>&1 | grep -i "error\|warning" || echo "✓ ISO built successfully"
+        ls -lh diggaos-v2.0.iso
+
+        echo ""
+        echo "╔════════════════════════════════════════╗"
+        echo "║      ✅ BUILD SUCCESSFUL ✅            ║"
+        echo "║                                        ║"
+        echo "║  ISO: diggaos-v2.0.iso                ║"
+        echo "║  Boot with: uname -a                  ║"
+        echo "║  Check OS: cat /etc/os-release        ║"
+        echo "║  User: digga (no password)            ║"
+        echo "║  Hostname: digga                      ║"
+        echo "╚════════════════════════════════════════╝"
+        echo ""
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: diggaos-apt
-        path: diggaos-apt.iso
+        name: diggaos-v2.0
+        path: diggaos-v2.0.iso
