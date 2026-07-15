@@ -111,12 +111,11 @@ jobs:
         ls -lh iso/boot/initrd.img
 
         echo "=== Step 8: Verify CPIO Contents ==="
-        echo "Files in initrd.img (first 30):"
-        xz -dc iso/boot/initrd.img | cpio -t 2>/dev/null | head -30
-        echo ""
         INIT_CHECK=$(xz -dc iso/boot/initrd.img | cpio -t 2>/dev/null | grep -c "^./init$")
         test "$INIT_CHECK" -eq 1 || { echo "FATAL: /init not found in cpio archive"; exit 1; }
         echo "✓ /init found in archive"
+        FILE_COUNT=$(xz -dc iso/boot/initrd.img | cpio -t 2>/dev/null | wc -l)
+        echo "✓ Archive contains $FILE_COUNT files/directories"
 
         echo "=== Step 9: GRUB Configuration ==="
         printf '%s\n' \
