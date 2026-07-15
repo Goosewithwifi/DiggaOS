@@ -64,9 +64,6 @@ jobs:
           'mount -t proc none /proc' \
           'mount -t sysfs none /sys' \
           'mount -t devtmpfs none /dev' \
-          'for m in $(find /lib/modules -name "*.ko" 2>/dev/null); do' \
-          '  insmod "$m" 2>/dev/null || true' \
-          'done' \
           'sleep 1' \
           'IFACE=$(ls /sys/class/net 2>/dev/null | grep -v lo | head -1)' \
           'if [ -n "$IFACE" ]; then' \
