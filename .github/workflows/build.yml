@@ -1,162 +1,202 @@
-name: Build DiggaOS v2.1 Panic Fix
+name: Build DiggaOS Enlightenment Edition
 on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    container:
+      image: alpine:3.23
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
 
-    - name: Install dependencies
+    - name: Install build tools
       run: |
-        sudo apt-get update
-        sudo apt-get install -y xorriso grub-pc-bin grub-common cpio gzip mtools kmod xz-utils
+        apk update
+        apk add --no-cache alpine-sdk build-base apk-tools alpine-conf busybox \
+          fakeroot syslinux xorriso squashfs-tools mtools dosfstools grub-efi \
+          git bash coreutils
 
-    - name: Build DiggaOS
+    - name: Verify logo exists in repo
       run: |
-        set -e
-        set -o pipefail
-        rm -rf iso initramfs
-        mkdir -p iso/boot/grub
-        mkdir -p initramfs/bin initramfs/dev initramfs/proc initramfs/sys initramfs/sbin initramfs/etc initramfs/lib/modules initramfs/home/digga initramfs/root
+        if [ ! -f "branding/logo.png" ]; then
+          echo "FATAL: branding/logo.png not found in repo."
+          echo "Commit your goose logo to branding/logo.png before running this workflow."
+          exit 1
+        fi
+        cp branding/logo.png /tmp/diggaos-logo.png
+        echo "✓ Logo found and staged: $(ls -lh /tmp/diggaos-logo.png)"
 
-        echo "=== Step 1: BusyBox ==="
-        wget -q -O initramfs/bin/busybox https://busybox.net/downloads/binaries/1.35.0-x86_64-linux-musl/busybox
-        test -s initramfs/bin/busybox || { echo "FATAL: busybox download failed or empty"; exit 1; }
-        chmod +x initramfs/bin/busybox
-        ./initramfs/bin/busybox --install -s ./initramfs/bin
-        test -x initramfs/bin/sh || { echo "FATAL: busybox did not install /bin/sh"; exit 1; }
-        echo "✓ BusyBox installed ($(ls initramfs/bin | wc -l) commands)"
+    - name: Clone Alpine build scripts
+      run: |
+        git clone --depth=1 https://gitlab.alpinelinux.org/alpine/aports.git /tmp/aports
+        test -f /tmp/aports/scripts/mkimage.sh || { echo "FATAL: mkimage.sh not found after clone"; exit 1; }
+        echo "✓ aports cloned"
 
-        echo "=== Step 2: System Identity Files ==="
-        echo "digga" > initramfs/etc/hostname
+    - name: Write custom DiggaOS profile
+      run: |
         printf '%s\n' \
+          'profile_diggaos() {' \
+          '  profile_extended' \
+          '  apks="$apks enlightenment xorg-server xf86-video-fbdev xf86-video-vesa"' \
+          '  apks="$apks mesa-dri-swrast mesa-gl mesa-egl eudev eudev-init"' \
+          '  apks="$apks dbus dbus-x11 util-linux terminology"' \
+          '  apks="$apks ttf-dejavu font-noto setxkbmap xinit mkfontscale"' \
+          '  local _k _a' \
+          '  for _k in $kernel_flavors; do' \
+          '    apks="$apks linux-$_k"' \
+          '    for _a in $kernel_addons; do' \
+          '      apks="$apks $_a-$_k"' \
+          '    done' \
+          '  done' \
+          '  apks="$apks linux-firmware-none"' \
+          '  hostname="diggaos"' \
+          '  apkovl="genapkovl-diggaos.sh"' \
+          '}' \
+          > /tmp/aports/scripts/mkimg.diggaos.sh
+        test -s /tmp/aports/scripts/mkimg.diggaos.sh || { echo "FATAL: profile script is empty"; exit 1; }
+        echo "✓ Profile written"
+        cat /tmp/aports/scripts/mkimg.diggaos.sh
+
+    - name: Write custom apkovl branding overlay
+      run: |
+        printf '%s\n' \
+          '#!/bin/sh -e' \
+          'HOSTNAME="$1"' \
+          'if [ -z "$HOSTNAME" ]; then' \
+          '  echo "usage: $0 hostname"' \
+          '  exit 1' \
+          'fi' \
+          'cleanup() {' \
+          '  rm -rf "$tmp"' \
+          '}' \
+          'makefile() {' \
+          '  OWNER="$1"' \
+          '  PERMS="$2"' \
+          '  FILENAME="$3"' \
+          '  cat > "$FILENAME"' \
+          '  chown "$OWNER" "$FILENAME"' \
+          '  chmod "$PERMS" "$FILENAME"' \
+          '}' \
+          'rc_add() {' \
+          '  mkdir -p "$tmp"/etc/runlevels/"$2"' \
+          '  ln -sf /etc/init.d/"$1" "$tmp"/etc/runlevels/"$2"/"$1"' \
+          '}' \
+          'tmp="$(mktemp -d)"' \
+          'trap cleanup EXIT' \
+          'mkdir -p "$tmp"/etc' \
+          'makefile root:root 0644 "$tmp"/etc/hostname <<EOF' \
+          '$HOSTNAME' \
+          'EOF' \
+          'mkdir -p "$tmp"/etc/network' \
+          'makefile root:root 0644 "$tmp"/etc/network/interfaces <<EOF' \
+          'auto lo' \
+          'iface lo inet loopback' \
+          '' \
+          'auto eth0' \
+          'iface eth0 inet dhcp' \
+          'EOF' \
+          'makefile root:root 0644 "$tmp"/etc/os-release <<EOF' \
           'NAME="DiggaOS"' \
-          'VERSION="2.1"' \
+          'PRETTY_NAME="DiggaOS - Enlightenment Edition"' \
           'ID=diggaos' \
-          'ID_LIKE=linux' \
-          'PRETTY_NAME="DiggaOS v2.1"' \
-          'VERSION_ID=2.1' \
+          'ID_LIKE=alpine' \
+          'VERSION="3.0"' \
           'HOME_URL="https://github.com/Goosewithwifi/Completely-ai-made-os"' \
-          > initramfs/etc/os-release
-        printf '%s\n' \
-          'DISTRIB_ID=DiggaOS' \
-          'DISTRIB_RELEASE=2.1' \
-          'DISTRIB_CODENAME=digga' \
-          'DISTRIB_DESCRIPTION="DiggaOS v2.1"' \
-          > initramfs/etc/lsb-release
-        echo "✓ System identity files created"
-
-        echo "=== Step 3: User Accounts ==="
-        printf '%s\n' \
-          'root:x:0:0:root:/root:/bin/sh' \
-          'digga:x:1000:1000:DiggaOS User:/home/digga:/bin/sh' \
-          > initramfs/etc/passwd
-        printf '%s\n' \
-          'root::0:0:99999:7:::' \
-          'digga::0:0:99999:7:::' \
-          > initramfs/etc/shadow
-        chmod 640 initramfs/etc/shadow
-        printf '%s\n' \
+          'EOF' \
+          'makefile root:root 0644 "$tmp"/etc/motd <<EOF' \
+          'Welcome to DiggaOS - Enlightenment Edition' \
+          'EOF' \
+          'makefile root:root 0644 "$tmp"/etc/passwd <<EOF' \
+          'root:x:0:0:root:/root:/bin/ash' \
+          'digga:x:1000:1000:DiggaOS User:/home/digga:/bin/ash' \
+          'EOF' \
+          'makefile root:root 0640 "$tmp"/etc/shadow <<EOF' \
+          'root::10933:0:::::' \
+          'digga::10933:0:::::' \
+          'EOF' \
+          'makefile root:root 0644 "$tmp"/etc/group <<EOF' \
           'root:x:0:' \
           'digga:x:1000:' \
-          > initramfs/etc/group
-        echo "✓ User accounts created (root, digga — no password)"
-
-        echo "=== Step 4: Kernel and Modules ==="
-        KERNEL_VERSION=$(uname -r)
-        echo "Kernel: $KERNEL_VERSION"
-        test -f /boot/vmlinuz-$KERNEL_VERSION || { echo "FATAL: kernel image not found"; exit 1; }
-        sudo cp /boot/vmlinuz-$KERNEL_VERSION ./vmlinuz_temp
-        mv ./vmlinuz_temp iso/boot/vmlinuz
-        sudo chmod 644 iso/boot/vmlinuz
-        test -d /lib/modules/$KERNEL_VERSION || { echo "FATAL: modules dir not found"; exit 1; }
-        sudo cp -r /lib/modules/$KERNEL_VERSION initramfs/lib/modules/
-        sudo chown -R $(id -u):$(id -g) initramfs
-        echo "✓ Kernel and modules copied (no manual insmod — modules aren't required for boot)"
-
-        echo "=== Step 5: Init Script ==="
-        printf '%s\n' \
-          '#!/bin/sh' \
-          'export PATH=/bin:/sbin:/usr/bin:/usr/sbin' \
-          'export HOME=/root' \
-          'export TERM=linux' \
-          '' \
-          'mount -t proc none /proc' \
-          'mount -t sysfs none /sys' \
-          'mount -t devtmpfs none /dev 2>/dev/null || true' \
-          '' \
-          'sleep 1' \
-          '' \
-          'IFACE=$(ls /sys/class/net 2>/dev/null | grep -v lo | head -1)' \
-          'if [ -n "$IFACE" ]; then' \
-          '  ifconfig "$IFACE" up 2>/dev/null || true' \
+          'video:x:28:digga' \
+          'audio:x:29:digga' \
+          'input:x:998:digga' \
+          'EOF' \
+          'mkdir -p "$tmp"/home/digga/.config/enlightenment-autostart' \
+          'mkdir -p "$tmp"/usr/share/diggaos' \
+          'if [ -f /tmp/diggaos-logo.png ]; then' \
+          '  cp /tmp/diggaos-logo.png "$tmp"/usr/share/diggaos/logo.png' \
           'fi' \
-          '' \
-          'clear' \
-          'echo "  ____  _                      ____   ____  "' \
-          'echo " |  _ \\(_) __ _  __ _  __ _   / __ \\ / ___| "' \
-          'echo " | | | | |/ _\` |/ _\` |/ _\` | | |  | |\\___ \\ "' \
-          'echo " | |_| | | (_| | (_| | (_| | | |__| | ___) |"' \
-          'echo " |____/|_|\\__, |\\__, |\\__,_|  \\____/ |____/ "' \
-          'echo "          |___/ |___/                       "' \
-          'echo ""' \
-          'echo "DiggaOS v2.1 - Stable Boot"' \
-          'echo ""' \
-          'echo "Kernel: $(uname -r)"' \
-          'echo "Hostname: $(cat /etc/hostname 2>/dev/null)"' \
-          'echo ""' \
-          'echo "Try: uname -a"' \
-          'echo "Try: whoami"' \
-          'echo "Try: cat /etc/os-release"' \
-          'echo ""' \
-          'exec /bin/sh' \
-          > initramfs/init
-        chmod +x initramfs/init
-        test -x initramfs/init || { echo "FATAL: init not executable"; exit 1; }
-        echo "✓ Init script created"
+          'makefile 1000:1000 0755 "$tmp"/home/digga/.xinitrc <<EOF' \
+          '#!/bin/sh' \
+          'exec enlightenment_start' \
+          'EOF' \
+          'makefile 1000:1000 0755 "$tmp"/home/digga/.config/enlightenment-autostart/set-wallpaper.sh <<EOF' \
+          '#!/bin/sh' \
+          'sleep 5' \
+          'enlightenment_remote -desktop-bg-add 0 0 0 0 /usr/share/diggaos/logo.png 2>/dev/null || true' \
+          'EOF' \
+          'makefile 1000:1000 0644 "$tmp"/home/digga/.profile <<EOF' \
+          'if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then' \
+          '  startx' \
+          'fi' \
+          'EOF' \
+          'mkdir -p "$tmp"/etc/apk' \
+          'makefile root:root 0644 "$tmp"/etc/apk/world <<EOF' \
+          'alpine-base' \
+          'enlightenment' \
+          'xorg-server' \
+          'dbus' \
+          'eudev' \
+          'EOF' \
+          'rc_add devfs sysinit' \
+          'rc_add dmesg sysinit' \
+          'rc_add mdev sysinit' \
+          'rc_add hwdrivers sysinit' \
+          'rc_add modloop sysinit' \
+          'rc_add hwclock boot' \
+          'rc_add modules boot' \
+          'rc_add sysctl boot' \
+          'rc_add hostname boot' \
+          'rc_add bootmisc boot' \
+          'rc_add syslog boot' \
+          'rc_add networking boot' \
+          'rc_add dbus default' \
+          'rc_add local default' \
+          'rc_add mount-ro shutdown' \
+          'rc_add killprocs shutdown' \
+          'rc_add savecache shutdown' \
+          'tar -c -C "$tmp" etc home usr | gzip -9n > $HOSTNAME.apkovl.tar.gz' \
+          > /tmp/aports/scripts/genapkovl-diggaos.sh
+        chmod +x /tmp/aports/scripts/genapkovl-diggaos.sh
+        test -s /tmp/aports/scripts/genapkovl-diggaos.sh || { echo "FATAL: overlay script is empty"; exit 1; }
+        echo "✓ Overlay script written"
 
-        echo "=== Step 6: Pack Initramfs ==="
-        ( cd initramfs && find . | cpio -o --format=newc > /tmp/initrd.cpio )
-        test -s /tmp/initrd.cpio || { echo "FATAL: cpio archive is empty"; exit 1; }
-        echo "cpio archive: $(ls -lh /tmp/initrd.cpio | awk '{print $5}')"
-        gzip -9 -c /tmp/initrd.cpio > iso/boot/initrd.img
-        test -s iso/boot/initrd.img || { echo "FATAL: initrd.img is empty"; exit 1; }
-        echo "✓ initrd.img packed with gzip: $(ls -lh iso/boot/initrd.img | awk '{print $5}')"
+    - name: Build ISO with mkimage.sh
+      run: |
+        set -e
+        mkdir -p /tmp/build-out
+        cd /tmp/aports/scripts
+        ./mkimage.sh \
+          --tag v3.23 \
+          --outdir /tmp/build-out \
+          --arch x86_64 \
+          --repository http://dl-cdn.alpinelinux.org/alpine/v3.23/main \
+          --repository http://dl-cdn.alpinelinux.org/alpine/v3.23/community \
+          --profile diggaos
+        echo "=== Build output directory ==="
+        ls -la /tmp/build-out
 
-        echo "=== Step 7: Verify Archive Contents ==="
-        rm -rf /tmp/verify-extract
-        mkdir -p /tmp/verify-extract
-        gzip -dc iso/boot/initrd.img > /tmp/initrd-check.cpio
-        test -s /tmp/initrd-check.cpio || { echo "FATAL: gzip decompression produced empty output — packed data is broken"; exit 1; }
-        ( cd /tmp/verify-extract && cpio -idm < /tmp/initrd-check.cpio > /tmp/cpio_extract.log 2>&1 )
-        test -x /tmp/verify-extract/init || { echo "FATAL: /init missing after extraction"; cat /tmp/cpio_extract.log; exit 1; }
-        test -x /tmp/verify-extract/bin/busybox || { echo "FATAL: busybox missing after extraction"; exit 1; }
-        test -x /tmp/verify-extract/bin/sh || { echo "FATAL: /bin/sh missing after extraction"; exit 1; }
-        echo "✓ /init, /bin/busybox, /bin/sh all verified present and executable"
-        rm -rf /tmp/verify-extract /tmp/initrd.cpio /tmp/initrd-check.cpio
-
-        echo "=== Step 8: GRUB Configuration ==="
-        printf '%s\n' \
-          'set timeout=2' \
-          'insmod part_iso9660' \
-          'insmod iso9660' \
-          'menuentry "DiggaOS v2.1" {' \
-          '    linux /boot/vmlinuz nomodeset init=/init' \
-          '    initrd /boot/initrd.img' \
-          '}' \
-          > iso/boot/grub/grub.cfg
-        echo "✓ GRUB config created — NOTE: no root=/dev/ram0, no rw (removed — this was the panic cause)"
-        cat iso/boot/grub/grub.cfg
-
-        echo "=== Step 9: Build ISO ==="
-        grub-mkrescue -o diggaos-v2.1.iso iso
-        test -s diggaos-v2.1.iso || { echo "FATAL: ISO build produced no output"; exit 1; }
-        echo "✓ ISO built: $(ls -lh diggaos-v2.1.iso | awk '{print $5}')"
+    - name: Verify and rename ISO
+      run: |
+        ISO_FILE=$(find /tmp/build-out -name "*.iso" | head -1)
+        test -n "$ISO_FILE" || { echo "FATAL: no ISO produced by mkimage.sh"; exit 1; }
+        test -s "$ISO_FILE" || { echo "FATAL: ISO file is empty"; exit 1; }
+        cp "$ISO_FILE" diggaos-enlightenment.iso
+        echo "✓ ISO built: $(ls -lh diggaos-enlightenment.iso)"
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: diggaos-v2.1
-        path: diggaos-v2.1.iso
+        name: diggaos-enlightenment
+        path: diggaos-enlightenment.iso
