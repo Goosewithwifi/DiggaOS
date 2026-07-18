@@ -33,6 +33,23 @@ jobs:
         test -f /tmp/aports/scripts/mkimage.sh || { echo "FATAL: mkimage.sh not found after clone"; exit 1; }
         echo "✓ aports cloned"
 
+    - name: Patch mkimage.sh for apk 3.x compatibility
+      run: |
+        # Current apk (3.x, shipped with Alpine 3.23) removed the --no-chown flag.
+        # mkimage.sh still passes it, which surfaces as a misleading
+        # "ERROR: --usermode not allowed as root" instead of an "unknown option" error.
+        if grep -q -- '--no-chown' /tmp/aports/scripts/mkimage.sh; then
+          echo "Found incompatible --no-chown flag — removing it"
+          sed -i 's/ --no-chown//g' /tmp/aports/scripts/mkimage.sh
+          if grep -q -- '--no-chown' /tmp/aports/scripts/mkimage.sh; then
+            echo "FATAL: patch did not remove all instances"
+            exit 1
+          fi
+          echo "✓ mkimage.sh patched successfully"
+        else
+          echo "No --no-chown flag found in mkimage.sh — already compatible, no patch needed"
+        fi
+
     - name: Write custom DiggaOS profile
       run: |
         printf '%s\n' \
