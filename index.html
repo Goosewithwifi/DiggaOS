@@ -1,0 +1,324 @@
+<!doctype html>
+<html lang="en" class="scroll-smooth">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>DiggaOS - Alpine-Based OS with Cosmic DE</title>
+    <link rel="stylesheet" href="./index.css" />
+    <script src="https://unpkg.com/@tailwindcss/browser@4"></script>
+  </head>
+  <body class="min-h-screen bg-background font-sans text-on-surface antialiased selection:bg-surface-container-high selection:text-on-surface">
+    
+    <!-- Top Navbar -->
+    <header class="fixed top-0 left-0 right-0 h-14 bg-background/80 backdrop-blur-md border-b border-outline-variant z-50 transition-all duration-200">
+      <div class="max-w-[1280px] mx-auto h-full px-6 flex items-center justify-between">
+        <!-- Logo / Branding -->
+        <a href="#hero" class="flex items-center space-x-2.5 hover:opacity-90 transition-opacity">
+          <div class="w-6 h-6 rounded border border-outline bg-surface overflow-hidden flex items-center justify-center">
+            <img src="./logo.jpg" alt="Logo" class="w-full h-full object-cover" />
+          </div>
+          <span class="font-sans text-sm font-semibold tracking-tight text-on-surface">DiggaOS</span>
+        </a>
+
+        <!-- Desktop Navigation Items -->
+        <nav class="hidden md:flex items-center space-x-1">
+          <button data-nav="stats" class="nav-link font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface transition-all cursor-pointer font-medium">Stats</button>
+          <button data-nav="explorer" class="nav-link font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface transition-all cursor-pointer font-medium">Explorer</button>
+          <button data-nav="commits" class="nav-link font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface transition-all cursor-pointer font-medium">Commits</button>
+          <button data-nav="community" class="nav-link font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface transition-all cursor-pointer font-medium">Community</button>
+          <button data-nav="download" class="nav-link font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 rounded-md text-on-surface-variant hover:text-on-surface transition-all cursor-pointer font-medium">Download</button>
+        </nav>
+
+        <!-- GitHub Links / Actions -->
+        <div class="flex items-center space-x-3">
+          <a href="https://github.com/Goosewithwifi/DiggaOS" target="_blank" rel="noopener noreferrer" class="p-1.5 border border-outline-variant rounded bg-surface text-on-surface-variant hover:text-on-surface hover:bg-surface-container-low transition-all">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24" aria-hidden="true">
+              <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="w-full pt-14">
+      
+      <!-- Hero Section -->
+      <section id="hero" class="max-w-[1280px] mx-auto px-6 pt-16 pb-20 flex flex-col items-center text-center relative overflow-hidden">
+        <!-- Accent light source background effect -->
+        <div class="absolute top-0 left-1/2 -translate-x-1/2 w-[500px] h-[500px] bg-surface-container-high/20 rounded-full filter blur-[120px] pointer-events-none -z-10"></div>
+        
+        <!-- Mascot Logo Holder -->
+        <div class="relative w-36 h-36 md:w-44 md:h-44 rounded-full border border-outline-variant p-2 bg-surface shadow-sm mb-10 transition-transform duration-300 hover:scale-[1.02] overflow-hidden flex items-center justify-center">
+          <img src="./logo.jpg" alt="DiggaOS Mascot" class="w-full h-full rounded-full object-cover" />
+        </div>
+
+        <div class="max-w-4xl mx-auto">
+          <!-- Main Title -->
+          <h1 class="font-sans text-4xl sm:text-6xl md:text-7xl font-extralight text-on-surface max-w-[850px] mb-6 tracking-tight leading-[1.08]">
+            An Alpine Based Operating System With The Cosmic Desktop Environment.
+          </h1>
+
+          <!-- Tagline -->
+          <p class="font-sans text-sm sm:text-base text-on-surface-variant max-w-xl mx-auto leading-relaxed mb-10">
+            A lightweight, secure desktop experience engineered with Alpine Linux's efficiency and powered by System76's modern Rust-based Cosmic Desktop Environment.
+          </p>
+
+          <!-- Call To Actions -->
+          <div class="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <button id="btn-explore" class="w-full sm:w-auto px-6 py-3 border border-outline bg-on-background text-background font-mono text-xs rounded-md font-semibold hover:opacity-90 transition-all active:scale-[0.98] cursor-pointer">
+              Explore Source Code ↓
+            </button>
+            <a href="https://github.com/Goosewithwifi/DiggaOS" target="_blank" rel="noopener noreferrer" class="w-full sm:w-auto px-6 py-3 border border-outline bg-surface text-on-surface font-mono text-xs rounded-md font-semibold hover:bg-surface-container-low transition-all active:scale-[0.98] inline-flex items-center justify-center space-x-2">
+              <span>View Repository</span>
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"></path>
+              </svg>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stats Dashboard -->
+      <section id="stats" class="max-w-[1280px] mx-auto px-6 py-16 scroll-mt-14 border-t border-outline-variant">
+        <div class="mb-10">
+          <span class="font-mono text-[10px] tracking-widest text-on-surface-variant uppercase font-semibold block mb-1">
+            Metrics &amp; Telemetry
+          </span>
+          <h2 class="font-sans text-2xl font-extralight tracking-tight text-on-surface">
+            GitHub Vital Signs
+          </h2>
+        </div>
+
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4" id="stats-grid">
+          <!-- Stats Cards are populated dynamically by main.ts -->
+          <div class="bg-surface border border-outline-variant rounded-lg p-5 flex flex-col justify-between h-28 animate-pulse">
+            <span class="font-mono text-[10px] text-on-surface-variant uppercase">Stars</span>
+            <span class="text-2xl font-extralight text-on-surface-variant">...</span>
+          </div>
+          <div class="bg-surface border border-outline-variant rounded-lg p-5 flex flex-col justify-between h-28 animate-pulse">
+            <span class="font-mono text-[10px] text-on-surface-variant uppercase">Forks</span>
+            <span class="text-2xl font-extralight text-on-surface-variant">...</span>
+          </div>
+          <div class="bg-surface border border-outline-variant rounded-lg p-5 flex flex-col justify-between h-28 animate-pulse">
+            <span class="font-mono text-[10px] text-on-surface-variant uppercase">Open Issues</span>
+            <span class="text-2xl font-extralight text-on-surface-variant">...</span>
+          </div>
+          <div class="bg-surface border border-outline-variant rounded-lg p-5 flex flex-col justify-between h-28 animate-pulse">
+            <span class="font-mono text-[10px] text-on-surface-variant uppercase">Repo Size</span>
+            <span class="text-2xl font-extralight text-on-surface-variant">...</span>
+          </div>
+        </div>
+      </section>
+
+      <!-- File Explorer -->
+      <section id="explorer" class="max-w-[1280px] mx-auto px-6 py-16 scroll-mt-14 border-t border-outline-variant">
+        <div class="flex flex-col md:flex-row items-start md:items-end justify-between mb-10 gap-4">
+          <div>
+            <span class="font-mono text-[10px] tracking-widest text-on-surface-variant uppercase font-semibold block mb-1">
+              File Tree Explorer
+            </span>
+            <h2 class="font-sans text-2xl font-extralight tracking-tight text-on-surface">
+              Navigation Console
+            </h2>
+          </div>
+          <div class="relative w-full md:w-72">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-on-surface-variant" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+            <input
+              type="text"
+              id="file-search"
+              placeholder="Search files in current dir..."
+              class="w-full bg-surface-container-low border border-outline-variant rounded-md pl-9 pr-3 py-1.5 text-xs text-on-surface placeholder:text-on-surface-variant/50 focus:outline-none focus:border-on-surface font-mono transition-colors"
+            />
+          </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          <!-- Main Explorer Panel -->
+          <div class="lg:col-span-8 bg-surface-container-low/40 border border-outline-variant rounded-lg p-5 min-h-[460px] flex flex-col">
+            
+            <!-- Breadcrumbs bar -->
+            <div id="breadcrumbs" class="flex flex-wrap items-center space-x-1 text-xs text-on-surface-variant border-b border-outline-variant pb-3 mb-3 font-mono text-[11px]">
+              <!-- Populated dynamically -->
+            </div>
+
+            <!-- Items List Container -->
+            <div id="explorer-list" class="flex-grow font-mono">
+              <!-- Populated dynamically -->
+            </div>
+          </div>
+
+          <!-- Selected File Details Panel -->
+          <div id="file-details" class="lg:col-span-4 bg-surface border border-outline-variant rounded-lg p-5 flex flex-col justify-between min-h-[300px]">
+            <!-- Dynamic State handled in main.ts -->
+          </div>
+        </div>
+      </section>
+
+      <!-- Commit Feed -->
+      <section id="commits" class="max-w-[1280px] mx-auto px-6 py-16 scroll-mt-14 border-t border-outline-variant">
+        <div class="flex items-end justify-between mb-10">
+          <div>
+            <span class="font-mono text-[10px] tracking-widest text-on-surface-variant uppercase font-semibold block mb-1">
+              Version Control
+            </span>
+            <h2 class="font-sans text-2xl font-extralight tracking-tight text-on-surface">
+              Recent Activity Feed
+            </h2>
+          </div>
+          <button id="btn-refresh-commits" class="p-2 border border-outline-variant rounded bg-surface hover:bg-surface-container-low transition-all cursor-pointer text-on-surface-variant hover:text-on-surface flex items-center space-x-1.5" title="Refresh Feed">
+            <svg id="refresh-icon" class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"></path>
+            </svg>
+            <span class="font-mono text-[10px] uppercase tracking-wider font-semibold">Refresh</span>
+          </button>
+        </div>
+
+        <!-- Commit List Wrapper -->
+        <div id="commit-feed-list" class="space-y-3 max-h-[500px] overflow-y-auto pr-2 custom-scrollbar">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
+
+      <!-- Contributors Spotlight -->
+      <section id="community" class="max-w-[1280px] mx-auto px-6 py-16 scroll-mt-14 border-t border-outline-variant">
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-end gap-6 mb-10">
+          <div>
+            <span class="font-mono text-[10px] tracking-widest text-on-surface-variant uppercase font-semibold block mb-1">
+              Core Contributors
+            </span>
+            <h2 class="font-sans text-2xl font-extralight tracking-tight text-on-surface">
+              Contributors
+            </h2>
+          </div>
+          <p class="font-sans text-xs text-on-surface-variant max-w-[400px] leading-relaxed">
+            While DiggaOS is a solo operating system project, I build on top of community-maintained software. Here are the contributors making this source tree possible.
+          </p>
+        </div>
+
+        <div id="contributors-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4">
+          <!-- Populated dynamically -->
+        </div>
+      </section>
+
+      <!-- Download Section (Human-First, Cozy Design) -->
+      <section id="download" class="max-w-[850px] mx-auto px-6 py-16 scroll-mt-14 border-t border-outline-variant">
+        <!-- Human Header -->
+        <div class="flex flex-col md:flex-row justify-between items-start md:items-start gap-8 mb-12">
+          <div class="md:w-1/3">
+            <h2 class="font-sans text-3xl font-extralight tracking-tight text-on-surface">
+              Can I download it yet?
+            </h2>
+          </div>
+          <div class="font-sans text-xs text-on-surface-variant md:w-2/3 leading-relaxed">
+            <p class="mb-3">
+              Hey there! I'm <strong class="font-medium text-on-surface">Goosewithwifi</strong>. I am building DiggaOS as a solo hobby project because I was bored and wanted to see how far I could push a custom Alpine base with the Cosmic Desktop environment.
+            </p>
+            <p>
+              Because it's just me working on this in my free time, it isn't quite ready for a public release just yet. I want to make sure it's completely stable and safe before publishing any images.
+            </p>
+          </div>
+        </div>
+
+        <!-- Interactive Download Card -->
+        <div class="border border-outline-variant rounded-lg bg-surface-container-low/15 p-6 md:p-10 flex flex-col items-center text-center relative overflow-hidden">
+          <!-- Subtle grid background accent -->
+          <div class="absolute inset-0 bg-[linear-gradient(to_right,#1f1f1f05_1px,transparent_1px),linear-gradient(to_bottom,#1f1f1f05_1px,transparent_1px)] bg-[size:2rem_2rem] pointer-events-none"></div>
+
+          <div class="relative z-10 w-full max-w-lg flex flex-col items-center">
+            <!-- Icon -->
+            <div class="w-10 h-10 border border-outline-variant rounded-md flex items-center justify-center bg-surface mb-5">
+              <svg class="w-5 h-5 text-on-surface-variant" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path>
+              </svg>
+            </div>
+
+            <h3 class="font-sans text-base font-semibold text-on-surface mb-2">
+              Early Alpha ISO &amp; Desktop Builds
+            </h3>
+            
+            <p class="font-sans text-xs text-on-surface-variant mb-8 leading-relaxed">
+              I'm currently custom compiling the Rust-based Cosmic applets to run seamlessly on top of Alpine's lightweight Musl-libc core. When it's ready, you'll be able to grab a live-bootable ISO file here to test in QEMU, VirtualBox, or on actual hardware.
+            </p>
+
+            <!-- Locked Button -->
+            <button id="btn-lock" class="w-full sm:w-auto border border-outline-variant bg-surface text-on-surface font-mono text-xs px-8 py-3 rounded-md flex items-center justify-center space-x-2 font-medium hover:bg-surface-container-low transition-all duration-150 active:scale-[0.99] cursor-pointer">
+              <svg class="w-3.5 h-3.5 text-on-surface-variant/60" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+              </svg>
+              <span>Locked &mdash; Still Cooking</span>
+            </button>
+
+            <!-- Collapsible message -->
+            <div id="download-message" class="hidden mt-5 w-full border border-amber-500/30 bg-amber-500/5 p-5 rounded-md text-left font-mono text-xs transition-all duration-300">
+              <div class="flex items-start space-x-2.5 text-amber-600">
+                <svg class="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                </svg>
+                <div>
+                  <span class="font-semibold block text-[11px] uppercase tracking-wider mb-1">Patience is a virtue!</span>
+                  <p class="text-[11px] leading-relaxed text-on-surface-variant font-normal">
+                    I'm actively tying Alpine's musl layer with Cosmic. I will unlock downloads the instant I have a stable live image that boots safely in a VM. Hang tight!
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Footer Love note -->
+        <div class="mt-8 flex items-center justify-center gap-2 text-center">
+          <svg class="w-3.5 h-3.5 text-red-500/80 fill-red-500/10 shrink-0" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M12 21.35l-1.45-1.32C5.4 15.36 2 12.28 2 8.5 2 5.42 4.42 3 7.5 3c1.74 0 3.41.81 4.5 2.09C13.09 3.81 14.76 3 16.5 3 19.58 3 22 5.42 22 8.5c0 3.78-3.4 6.86-8.55 11.54L12 21.35z"></path>
+          </svg>
+          <p class="font-sans text-[11px] text-on-surface-variant leading-relaxed">
+            No corporate backing, no telemetry, no tracking. Just code, coffee, and open-source curiosity.
+          </p>
+        </div>
+      </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="w-full border-t border-outline-variant bg-background pt-20 pb-12 select-none">
+      <div class="max-w-[1280px] mx-auto px-6 mb-16 text-center">
+        <h2 class="text-3xl md:text-5xl font-extralight tracking-tight text-on-surface mb-6">
+          Build for DiggaOS.
+        </h2>
+        <a
+          href="https://github.com/Goosewithwifi/DiggaOS"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="inline-flex border border-outline-variant bg-on-background text-background font-mono text-xs px-6 py-3 rounded-md hover:opacity-90 transition-all active:scale-[0.98] cursor-pointer font-medium"
+        >
+          Fork on GitHub →
+        </a>
+      </div>
+
+      <div class="max-w-[1280px] mx-auto px-6 pt-6 border-t border-outline-variant flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
+        <div class="font-mono text-[10px] text-on-surface-variant">
+          &copy; 2026 DiggaOS Project. Maintained by Goosewithwifi.
+        </div>
+        <div class="flex space-x-3 text-on-surface-variant">
+          <a href="https://github.com/Goosewithwifi/DiggaOS" target="_blank" rel="noopener noreferrer" class="hover:text-on-surface transition-colors" title="GitHub">
+            <svg class="w-4 h-4 fill-current" viewBox="0 0 24 24">
+              <path fill-rule="evenodd" d="M12 2C6.477 2 2 6.484 2 12.017c0 4.425 2.865 8.18 6.839 9.504.5.092.682-.217.682-.483 0-.237-.008-.868-.013-1.703-2.782.605-3.369-1.343-3.369-1.343-.454-1.158-1.11-1.466-1.11-1.466-.908-.62.069-.608.069-.608 1.003.07 1.53 1.032 1.53 1.032.892 1.53 2.341 1.088 2.91.832.092-.647.35-1.088.636-1.338-2.22-.253-4.555-1.113-4.555-4.951 0-1.093.39-1.988 1.029-2.688-.103-.253-.446-1.272.098-2.65 0 0 .84-.27 2.75 1.026A9.564 9.564 0 0112 6.844c.85.004 1.705.115 2.504.337 1.909-1.296 2.747-1.027 2.747-1.027.546 1.379.202 2.398.1 2.651.64.7 1.028 1.595 1.028 2.688 0 3.848-2.339 4.695-4.566 4.943.359.309.678.92.678 1.855 0 1.338-.012 2.419-.012 2.747 0 .268.18.58.688.482A10.019 10.019 0 0022 12.017C22 6.484 17.522 2 12 2z" clip-rule="evenodd"></path>
+            </svg>
+          </a>
+        </div>
+      </div>
+    </footer>
+
+    <!-- Scroll Back To Top Button -->
+    <button id="btn-scroll-top" class="hidden fixed bottom-6 right-6 p-2 bg-surface hover:bg-surface-container-high border border-outline-variant text-on-surface rounded-md transition-all active:scale-[0.98] z-50 cursor-pointer" title="Scroll back to top">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M5 10l7-7m0 0l7 7m-7-7v18"></path>
+      </svg>
+    </button>
+
+    <!-- Main JS Bundle -->
+    <script type="module" src="./main.js"></script>
+  </body>
+</html>

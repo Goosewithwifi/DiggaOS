@@ -1,0 +1,37 @@
+@import url('https://fonts.googleapis.com/css2?family=Geist:wght@100..900&family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap');
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Geist", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+
+  /* Strict Monochrome & Developer-First Bright Palette */
+  --color-background: #FCFCFD;
+  --color-surface: #FFFFFF;
+  --color-surface-container: #FAFAFA;
+  --color-surface-container-low: #F4F4F5;
+  --color-surface-container-lowest: #FFFFFF;
+  --color-surface-container-high: #E4E4E7;
+  --color-surface-container-highest: #D4D4D8;
+  
+  --color-on-background: #09090B;
+  --color-on-surface: #09090B;
+  --color-on-surface-variant: #52525B;
+  
+  --color-primary: #09090B;
+  --color-on-primary: #FFFFFF;
+  --color-secondary: #71717A;
+  --color-outline: #E4E4E7;
+  --color-outline-variant: #E4E4E7; /* Exact 1px border color */
+}
+
+@layer base {
+  body {
+    background-color: var(--color-background);
+    color: var(--color-on-surface);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
