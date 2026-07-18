@@ -1,11 +1,11 @@
-name: Build DiggaOS Enlightenment Edition
+name: Build DiggaOS COSMIC Edition
 on: [push, workflow_dispatch]
 
 jobs:
   build:
     runs-on: ubuntu-latest
     container:
-      image: alpine:3.23
+      image: alpine:3.24
     steps:
     - name: Checkout code
       uses: actions/checkout@v4
@@ -21,7 +21,6 @@ jobs:
       run: |
         if [ ! -f "branding/logo.png" ]; then
           echo "FATAL: branding/logo.png not found in repo."
-          echo "Commit your goose logo to branding/logo.png before running this workflow."
           exit 1
         fi
         if [ ! -f "DiggaOS/wallpapers/wallpaper.png" ]; then
@@ -41,9 +40,9 @@ jobs:
 
     - name: Patch mkimage.sh for apk 3.x compatibility
       run: |
-        # Current apk (3.x, shipped with Alpine 3.23) removed the --no-chown flag.
-        # mkimage.sh still passes it, which surfaces as a misleading
-        # "ERROR: --usermode not allowed as root" instead of an "unknown option" error.
+        # Current apk (3.x) removed the --no-chown flag. mkimage.sh still passes it,
+        # which surfaces as a misleading "ERROR: --usermode not allowed as root"
+        # instead of an "unknown option" error.
         if grep -q -- '--no-chown' /tmp/aports/scripts/mkimage.sh; then
           echo "Found incompatible --no-chown flag — removing it"
           sed -i 's/ --no-chown//g' /tmp/aports/scripts/mkimage.sh
@@ -53,7 +52,7 @@ jobs:
           fi
           echo "✓ mkimage.sh patched successfully"
         else
-          echo "No --no-chown flag found in mkimage.sh — already compatible, no patch needed"
+          echo "No --no-chown flag found — already compatible"
         fi
 
     - name: Write custom DiggaOS profile
@@ -62,10 +61,11 @@ jobs:
           'profile_diggaos() {' \
           '  profile_extended' \
           '  modloop_sign="no"' \
-          '  apks="$apks enlightenment xorg-server xf86-video-fbdev xf86-video-vesa"' \
-          '  apks="$apks mesa-dri-swrast mesa-gl mesa-egl eudev eudev-init"' \
-          '  apks="$apks dbus dbus-x11 util-linux terminology"' \
-          '  apks="$apks ttf-dejavu font-noto setxkbmap xinit mkfontscale"' \
+          '  apks="$apks cosmic-session"' \
+          '  apks="$apks eudev dbus elogind polkit-elogind"' \
+          '  apks="$apks mesa-dri-gallium mesa-egl"' \
+          '  apks="$apks ttf-dejavu font-noto"' \
+          '  apks="$apks adwaita-icon-theme desktop-file-utils gnome-keyring hicolor-icon-theme musl-locales"' \
           '  local _k _a' \
           '  for _k in $kernel_flavors; do' \
           '    apks="$apks linux-$_k"' \
@@ -122,14 +122,14 @@ jobs:
           'EOF' \
           'makefile root:root 0644 "$tmp"/etc/os-release <<EOF' \
           'NAME="DiggaOS"' \
-          'PRETTY_NAME="DiggaOS - Enlightenment Edition"' \
+          'PRETTY_NAME="DiggaOS - COSMIC Edition"' \
           'ID=diggaos' \
           'ID_LIKE=alpine' \
           'VERSION="3.0"' \
           'HOME_URL="https://github.com/Goosewithwifi/Completely-ai-made-os"' \
           'EOF' \
           'makefile root:root 0644 "$tmp"/etc/motd <<EOF' \
-          'Welcome to DiggaOS - Enlightenment Edition' \
+          'Welcome to DiggaOS - COSMIC Edition' \
           'EOF' \
           'makefile root:root 0644 "$tmp"/etc/passwd <<EOF' \
           'root:x:0:0:root:/root:/bin/ash' \
@@ -146,7 +146,7 @@ jobs:
           'audio:x:29:digga' \
           'input:x:998:digga' \
           'EOF' \
-          'mkdir -p "$tmp"/home/digga/.config/enlightenment-autostart' \
+          'mkdir -p "$tmp"/home/digga/.config/cosmic/com.system76.CosmicBackground/v1' \
           'mkdir -p "$tmp"/usr/share/diggaos' \
           'if [ -f /tmp/diggaos-logo.png ]; then' \
           '  cp /tmp/diggaos-logo.png "$tmp"/usr/share/diggaos/logo.png' \
@@ -154,32 +154,35 @@ jobs:
           'if [ -f /tmp/diggaos-wallpaper.png ]; then' \
           '  cp /tmp/diggaos-wallpaper.png "$tmp"/usr/share/diggaos/wallpaper.png' \
           'fi' \
-          'makefile 1000:1000 0755 "$tmp"/home/digga/.xinitrc <<EOF' \
-          '#!/bin/sh' \
-          'exec enlightenment_start' \
-          'EOF' \
-          'makefile 1000:1000 0755 "$tmp"/home/digga/.config/enlightenment-autostart/set-wallpaper.sh <<EOF' \
-          '#!/bin/sh' \
-          'sleep 5' \
-          'enlightenment_remote -desktop-bg-add 0 0 0 0 /usr/share/diggaos/wallpaper.png 2>/dev/null || true' \
+          'makefile 1000:1000 0644 "$tmp"/home/digga/.config/cosmic/com.system76.CosmicBackground/v1/all <<EOF' \
+          '(' \
+          '    output: "all",' \
+          '    source: Path("/usr/share/diggaos/wallpaper.png"),' \
+          '    filter_by_theme: false,' \
+          '    rotation_frequency: 300,' \
+          '    filter_method: Lanczos,' \
+          '    scaling_mode: Zoom,' \
+          '    sampling_method: Alphanumeric,' \
+          ')' \
           'EOF' \
           'makefile 1000:1000 0644 "$tmp"/home/digga/.profile <<EOF' \
-          'if [ -z "$DISPLAY" ] && [ "$(tty)" = "/dev/tty1" ]; then' \
-          '  startx' \
+          'if [ -z "\$WAYLAND_DISPLAY" ] && [ "\$(tty)" = "/dev/tty1" ]; then' \
+          '  start-cosmic' \
           'fi' \
           'EOF' \
           'mkdir -p "$tmp"/etc/apk' \
           'makefile root:root 0644 "$tmp"/etc/apk/world <<EOF' \
           'alpine-base' \
-          'enlightenment' \
-          'xorg-server' \
-          'dbus' \
+          'cosmic-session' \
           'eudev' \
+          'dbus' \
+          'elogind' \
           'EOF' \
           'rc_add devfs sysinit' \
           'rc_add dmesg sysinit' \
-          'rc_add mdev sysinit' \
-          'rc_add hwdrivers sysinit' \
+          'rc_add udev sysinit' \
+          'rc_add udev-trigger sysinit' \
+          'rc_add udev-settle sysinit' \
           'rc_add modloop sysinit' \
           'rc_add hwclock boot' \
           'rc_add modules boot' \
@@ -188,7 +191,9 @@ jobs:
           'rc_add bootmisc boot' \
           'rc_add syslog boot' \
           'rc_add networking boot' \
+          'rc_add udev-postmount default' \
           'rc_add dbus default' \
+          'rc_add elogind default' \
           'rc_add local default' \
           'rc_add mount-ro shutdown' \
           'rc_add killprocs shutdown' \
@@ -205,11 +210,11 @@ jobs:
         mkdir -p /tmp/build-out
         cd /tmp/aports/scripts
         ./mkimage.sh \
-          --tag v3.23 \
+          --tag v3.24 \
           --outdir /tmp/build-out \
           --arch x86_64 \
-          --repository http://dl-cdn.alpinelinux.org/alpine/v3.23/main \
-          --repository http://dl-cdn.alpinelinux.org/alpine/v3.23/community \
+          --repository http://dl-cdn.alpinelinux.org/alpine/v3.24/main \
+          --repository http://dl-cdn.alpinelinux.org/alpine/v3.24/community \
           --profile diggaos
         echo "=== Build output directory ==="
         ls -la /tmp/build-out
@@ -219,11 +224,11 @@ jobs:
         ISO_FILE=$(find /tmp/build-out -name "*.iso" | head -1)
         test -n "$ISO_FILE" || { echo "FATAL: no ISO produced by mkimage.sh"; exit 1; }
         test -s "$ISO_FILE" || { echo "FATAL: ISO file is empty"; exit 1; }
-        cp "$ISO_FILE" diggaos-enlightenment.iso
-        echo "✓ ISO built: $(ls -lh diggaos-enlightenment.iso)"
+        cp "$ISO_FILE" diggaos-cosmic.iso
+        echo "✓ ISO built: $(ls -lh diggaos-cosmic.iso)"
 
     - name: Upload Artifact
       uses: actions/upload-artifact@v4
       with:
-        name: diggaos-enlightenment
-        path: diggaos-enlightenment.iso
+        name: diggaos-cosmic
+        path: diggaos-cosmic.iso
