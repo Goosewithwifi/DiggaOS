@@ -17,20 +17,27 @@ jobs:
           fakeroot syslinux xorriso squashfs-tools mtools dosfstools grub-efi \
           git bash coreutils
 
-    - name: Verify logo and wallpaper exist in repo
+    - name: Verify logo and wallpapers exist in repo
       run: |
         if [ ! -f "branding/logo.png" ]; then
           echo "FATAL: branding/logo.png not found in repo."
           exit 1
         fi
-        if [ ! -f "DiggaOS/wallpapers/wallpaper.png" ]; then
-          echo "FATAL: DiggaOS/wallpapers/wallpaper.png not found in repo."
+        if [ ! -d "DiggaOS/wallpapers" ]; then
+          echo "FATAL: DiggaOS/wallpapers/ directory not found in repo."
+          exit 1
+        fi
+        mkdir -p /tmp/diggaos-wallpapers
+        find "DiggaOS/wallpapers" -maxdepth 1 -type f \( -iname "*.png" -o -iname "*.jpg" -o -iname "*.jpeg" \) -exec cp {} /tmp/diggaos-wallpapers/ \;
+        WALLPAPER_COUNT=$(find /tmp/diggaos-wallpapers -type f | wc -l)
+        if [ "$WALLPAPER_COUNT" -eq 0 ]; then
+          echo "FATAL: no wallpaper images (.png/.jpg/.jpeg) found in DiggaOS/wallpapers/"
           exit 1
         fi
         cp branding/logo.png /tmp/diggaos-logo.png
-        cp "DiggaOS/wallpapers/wallpaper.png" /tmp/diggaos-wallpaper.png
         echo "✓ Logo staged: $(ls -lh /tmp/diggaos-logo.png)"
-        echo "✓ Wallpaper staged: $(ls -lh /tmp/diggaos-wallpaper.png)"
+        echo "✓ Staged $WALLPAPER_COUNT wallpaper(s):"
+        ls -lh /tmp/diggaos-wallpapers/
 
     - name: Clone Alpine build scripts
       run: |
@@ -147,17 +154,19 @@ jobs:
           'input:x:998:digga' \
           'EOF' \
           'mkdir -p "$tmp"/home/digga/.config/cosmic/com.system76.CosmicBackground/v1' \
-          'mkdir -p "$tmp"/usr/share/diggaos' \
+          'mkdir -p "$tmp"/usr/share/diggaos/wallpapers' \
           'if [ -f /tmp/diggaos-logo.png ]; then' \
           '  cp /tmp/diggaos-logo.png "$tmp"/usr/share/diggaos/logo.png' \
           'fi' \
-          'if [ -f /tmp/diggaos-wallpaper.png ]; then' \
-          '  cp /tmp/diggaos-wallpaper.png "$tmp"/usr/share/diggaos/wallpaper.png' \
+          'if [ -d /tmp/diggaos-wallpapers ]; then' \
+          '  cp /tmp/diggaos-wallpapers/*.png "$tmp"/usr/share/diggaos/wallpapers/ 2>/dev/null || true' \
+          '  cp /tmp/diggaos-wallpapers/*.jpg "$tmp"/usr/share/diggaos/wallpapers/ 2>/dev/null || true' \
+          '  cp /tmp/diggaos-wallpapers/*.jpeg "$tmp"/usr/share/diggaos/wallpapers/ 2>/dev/null || true' \
           'fi' \
           'makefile 1000:1000 0644 "$tmp"/home/digga/.config/cosmic/com.system76.CosmicBackground/v1/all <<EOF' \
           '(' \
           '    output: "all",' \
-          '    source: Path("/usr/share/diggaos/wallpaper.png"),' \
+          '    source: Path("/usr/share/diggaos/wallpapers/"),' \
           '    filter_by_theme: false,' \
           '    rotation_frequency: 300,' \
           '    filter_method: Lanczos,' \
@@ -203,6 +212,26 @@ jobs:
         chmod +x /tmp/aports/scripts/genapkovl-diggaos.sh
         test -s /tmp/aports/scripts/genapkovl-diggaos.sh || { echo "FATAL: overlay script is empty"; exit 1; }
         echo "✓ Overlay script written"
+
+    - name: Generate local signing key
+      run: |
+        # mkimage.sh signs the local package index it bundles onto the ISO.
+        # This is our own throwaway key (not Alpine's official one) — fine for
+        # a personal build, just needed so the signing step has something to use.
+        abuild-keygen -a -n
+        test -f "$HOME/.abuild/abuild.conf" || { echo "FATAL: abuild-keygen did not create config"; exit 1; }
+        grep -q PACKAGER_PRIVKEY "$HOME/.abuild/abuild.conf" || { echo "FATAL: PACKAGER_PRIVKEY not set"; exit 1; }
+        echo "✓ Signing key generated"
+
+    - name: Generate signing key for abuild
+      run: |
+        # mkimage.sh signs the local package index it builds; a fresh container
+        # has no key at all. This generates a throwaway self-signed keypair
+        # (fine for a personal ISO — we're not matching Alpine's own trust chain)
+        # and installs it non-interactively, per the error message's own instructions.
+        abuild-keygen -a -i -n
+        test -n "$(find /root/.abuild -name '*.rsa' 2>/dev/null)" || { echo "FATAL: no key generated"; exit 1; }
+        echo "✓ Signing key generated and installed"
 
     - name: Build ISO with mkimage.sh
       run: |
